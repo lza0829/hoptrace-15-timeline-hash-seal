@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.db import connect
+from app.modules.timeline_hash_seal import SealTamperError
 from app.services import ingest as ingest_svc
 from app.services import timeline as timeline_svc
 
@@ -20,6 +21,9 @@ def overview():
                 "SELECT COUNT(*) AS c FROM hops WHERE channel='sidecar'"
             ).fetchone()["c"],
             "quarantine": conn.execute("SELECT COUNT(*) AS c FROM quarantine").fetchone()["c"],
+            "sealed": conn.execute(
+                "SELECT COUNT(*) AS c FROM timeline_seals WHERE status='sealed'"
+            ).fetchone()["c"],
         }
     finally:
         conn.close()
@@ -30,7 +34,13 @@ def list_waybills():
     conn = connect()
     try:
         rows = conn.execute(
-            "SELECT id, title, status_proj, created_at FROM waybills ORDER BY id"
+            """
+            SELECT w.id, w.title, w.status_proj, w.created_at,
+                   s.status AS seal_status, s.content_hash AS seal_hash
+            FROM waybills w
+            LEFT JOIN timeline_seals s ON s.waybill_id = w.id
+            ORDER BY w.id
+            """
         ).fetchall()
         return [dict(r) for r in rows]
     finally:
@@ -45,6 +55,11 @@ def waybill_timeline(waybill_id: str):
         if not wb:
             raise HTTPException(404, "运单不存在")
         hops = timeline_svc.list_primary(conn, waybill_id)
+        # 封存协同读：封印态用封存哈希校验当前正式线，篡改则拒绝返回
+        try:
+            seal_view = timeline_svc.sealed_view(conn, waybill_id)
+        except SealTamperError as e:
+            raise HTTPException(409, f"封存校验失败，拒绝返回正式线：{e}")
         proof = conn.execute(
             "SELECT * FROM status_proofs WHERE waybill_id=? ORDER BY id DESC LIMIT 1",
             (waybill_id,),
@@ -53,6 +68,7 @@ def waybill_timeline(waybill_id: str):
             "waybill": dict(wb),
             "hops": hops,
             "proof": dict(proof) if proof else None,
+            "seal": seal_view,
         }
     finally:
         conn.close()

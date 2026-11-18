@@ -28,6 +28,7 @@ onMounted(async () => {
         <router-link to="/sidecar">旁路</router-link>
         <router-link to="/quarantine">隔离</router-link>
         <router-link to="/proofs">证明</router-link>
+        <router-link to="/seals">封存</router-link>
       </nav>
       <div class="pulse" :class="{ ok: health?.正常 }">
         {{ health?.正常 ? '链路通' : '待连接' }}

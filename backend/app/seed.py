@@ -47,6 +47,30 @@ CREATE TABLE IF NOT EXISTS status_proofs (
   proj_value TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+
+-- timeline_hash_seal：封存实体落库（独立封存表形态）。
+-- 一行一运单，封印态 status='sealed' 即写闸；解封后保留为历史证据。
+CREATE TABLE IF NOT EXISTS timeline_seals (
+  waybill_id TEXT PRIMARY KEY REFERENCES waybills(id),
+  content_hash TEXT NOT NULL,
+  point_count INTEGER NOT NULL,
+  projection TEXT NOT NULL,
+  snapshot_json TEXT NOT NULL,
+  sealed_at TEXT NOT NULL,
+  sealed_by TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'sealed' CHECK (status IN ('sealed','unsealed'))
+);
+
+-- 封印 / 解封 / 写闸拦截全量审计，只追加不改写。
+CREATE TABLE IF NOT EXISTS seal_audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  waybill_id TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('seal','unseal','ingest_blocked')),
+  reason TEXT,
+  content_hash TEXT,
+  actor TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 """
 
 EVENT_STATUS = {

@@ -20,4 +20,20 @@ export const api = {
   ingest: () => req('/api/ingest/run', { method: 'POST' }),
   proofs: (waybillId) =>
     req(waybillId ? `/api/status-proofs?waybill_id=${encodeURIComponent(waybillId)}` : '/api/status-proofs'),
+  // timeline_hash_seal：封存 / 解封 / 封存证明 / 审计
+  seals: () => req('/api/seals'),
+  seal: (waybillId, actor = 'manual') =>
+    req(`/api/seals/${encodeURIComponent(waybillId)}`, { method: 'POST', body: JSON.stringify({ actor }) }),
+  unseal: (waybillId, reason, actor = 'manual') =>
+    req(`/api/seals/${encodeURIComponent(waybillId)}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ reason, actor }),
+    }),
+  sealProof: (waybillId) => req(`/api/seals/${encodeURIComponent(waybillId)}/proof`),
+  sealAudit: (waybillId) =>
+    req(
+      waybillId
+        ? `/api/seals/audit/log?waybill_id=${encodeURIComponent(waybillId)}`
+        : '/api/seals/audit/log',
+    ),
 }
